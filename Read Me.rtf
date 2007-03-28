@@ -1,0 +1,236 @@
+{\rtf1\mac\ansicpg10000\cocoartf824\cocoasubrtf420
+{\fonttbl\f0\fswiss\fcharset77 Helvetica-Bold;\f1\fswiss\fcharset77 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww12520\viewh13440\viewkind0
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\ql\qnatural\pardirnatural
+
+\f0\b\fs24 \cf0 iSproggler
+\f1\b0 \
+\
+iSproggler is an Audioscrobbler plug-in for iTunes. Like iScrobbler for Mac OS X it is not a plug-in per se, rather it is a separate application. Songs can be played repeatedly, pausing is allowed, MBIDs are submittted and iPod played songs are supported, including iPod shuffle plays and repeatedly played songs. Motorola iTunes phones are also supported. Streams and iTunes Music Store previews are ignored. Podcasts and videos are optionally ignored.\
+\
+Most of the testing was done using Mac OS X, no complete Mac OS X version is planned with the excellent iScrobbler currently available.\
+\
+This software comes with absolutely no warranty and probably will not even work.\
+\
+\
+
+\f0\b Installation
+\f1\b0 \
+\
+Open the downloaded zip file (unzip if necessary) and copy the iSproggler folder to C:\\Program Files.\
+\
+The application can be uninstalled simply by moving the iSproggler folder to the Recycle Bin. You can optionally remove the preferences, log and cache by removing the C:\\Documents and Settings\\<username>\\Application Data\\iSproggler folder.\
+\
+\
+
+\f0\b Usage
+\f1\b0 \
+\
+When iSproggler is run an icon will appear in the system tray, right clicking the icon will show the menu. The system tray icon can be either red or blue, it will turn blue while there are handshake or submission failures and also if submissions are paused or disabled. Disabled submissions are ignored. Paused submissions are no longer cached and submitted later, iTunes and iPod checks are just delayed until submissions are resumed.\
+\
+Ensure that you do not have iScrobbler enabled, if both try to submit iTunes playing data to Audioscrobbler one will receive a BADAUTH submission response. If you connect to the Internet through a proxy, Control Panel/Internet Explorer's proxy settings will be used. If the proxy requires authentication, edit the local.py file accordingly.\
+\
+\pard\pardeftab720\sl320\ql\qnatural
+\cf0 If you prefer to run iSproggler without the system tray icon, you can do so by running iSproggler.exe with the --console switch from cmd.exe like this: "C:\\Program Files\\iSproggler\\iSproggler.exe --console" (sans quotes). Replacing False with True in local.py next to "console" will also achieve this.\
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\ql\qnatural\pardirnatural
+\cf0 \
+iTunes 4.9 is reported to work, however, iTunes 6.0.2 or later is recommended as it is linked to the updated type library. iTunes 5 is required for iPod shuffle support as previous versions don't update the Last Played time on update.\
+\
+\
+
+\f0\b iPod Support
+\f1\b0 \
+\
+Checking the 'Enable iPod Support' checkbox will enable iPod support. If the iTunes Music Library.xml file cannot be automatically found, a file dialog will appear to manually find it. It is recommended to automatically update your iPod, updating selected playlists if there is not enough space on the iPod.\
+\
+For automatically updated iPods, iPod songs will automatically added to the queue shortly after the iPod is plugged in.\
+\
+For automatically updated iPods with disk mode enabled, the same applies above although the iPod drive needs to be ejected first. The "Update iPod" menu can be used although multiple plays will not be available.\
+\
+For manually updated iPods, the "Update iPod" menu is used. A Smart Playlist titled "Recently Played" is required, this name can be changed via the local.py file. Multiple plays will not be available. If the "Update iPod" menu is not selected during the time the iPod is plugged in, an attempt will be made to find automatically updated iPod songs. To disable this automatic checking, check the "Only Check Manually Updated iPods" checkbox.\
+\
+\
+
+\f0\b iPod Limitations
+\f1\b0 \
+\
+Music cannot be played in iTunes before connecting your iPod, Last.fm does not accept submissions dated before your last submission. Anything played after the last recognised iTunes or iPod song is added to the submission queue.\
+\
+Multiple plays are not supported for manually updated iPods, for several reasons.\
+\
+Regular iPods can be used at the same time as an iPod shuffle, however, iPod shuffle songs are only recognised if they are played last.\
+\
+\
+
+\f0\b Known Issues
+\f1\b0 \
+\
+\'a5 The server will intermittently return "Plugin bug: Not all request variables are set" FAILED response on submission, this is not a bug and has been reported in several plug-ins. The song will be cached and submitted when the next song is submitted.\
+\
+
+\f0\b \
+Version History
+\f1\b0 \
+\
+1.0.1 Released 2007-03-28\
+\'a5 Multiple plays now available for users with non-ASCII characters in Windows usernames\
+\'a5 Love function for playing songs\
+\
+1.0 Released 2007-03-24\
+\'a5 Last iTunes- or iPod-played epoch defaults to time iPod support is enabled if no song has been played\
+\'a5 Green icon flashes on successful handshake or submission\
+\'a5 Songs with no original play count defaults to 0 for multiple plays\
+\'a5 Automatic reduction of batch sizes if "Plugin bug" FAILED submission response is returned\
+\'a5 Automatically and manually updated iPod exclusion rules have parity with iTunes rules\
+\'a5 Improved message for improperly setup Smart Playlists\
+\'a5 Improved message for Smart Playlists that do not exist\
+\'a5 Message if the iTunes Music Library.xml file is moved or no longer used\
+\'a5 Message if iTunes has been upgraded and not installed properly\
+\
+0.4.4 Released 2006-12-06\
+\'a5 Support for Windows Vista\
+\'a5 Bug fixes for manually updated iPods\
+\
+0.4.3 Released 2006-09-22\
+\'a5 Support for Motorola phones\
+\'a5 Ability to ignore and allow podcasts, video podcasts and other videos\
+\'a5 Support for iTunes played songs in iTunes 7 on Mac OS X\
+\'a5 Exponential submission intervals fix for network errors\
+\
+0.4.2 Released 2006-09-10\
+\'a5 Minor bug fixes\
+\
+0.4.1 Released 2006-06-05\
+\'a5 Improvements to for manually updated iPods\
+\'a5 Option to submit Podcasts\
+\
+0.4 Released 2006-05-28\
+\'a5 Support for manually updated iPods\
+\'a5 iTunes Music Library XML automatically found\
+\'a5 MBID parser significantly optimised\
+\'a5 Submissions attempted at exponential intervals\
+\'a5 Experimental option to suppress iTunes warning dialog\
+\'a5 Check to see if Audioscrobbler Beta is enabled\
+\'a5 Check to see if time zone is correct\
+\'a5 iPod songs with duration less than 30 seconds submitted if MBID is available\
+\'a5 Paused submission state has changed: iTunes and iPod songs are now delayed until submissions are resumed\
+\'a5 Videos played in the Video source or on an iPod are ignored\
+\'a5\'caBugfix for unplayed songs for multiple plays\
+\
+0.3.5 Released 2006-04-09\
+\'a5 Paused and disabled submission states preserved when quitting\
+\'a5 Checks to see if iScrobber or jscrob2 is enabled\
+\'a5 Redirection of standard files to enable logging of http requests\
+\'a5 Persistent ID used for comparing multiple plays to compensate for changing IDs (requires iTunes 6)\
+\'a5 Customisation of the size of batch submissions\
+\
+0.3.4 Released 2006-03-31\
+\'a5 Songs with duration less than 30 seconds submitted if MBID is available\
+\'a5 Dialogs customised for different font sizes\
+\
+0.3.3 Released 2006-03-26\
+\'a5 Spam protection filters for multiple played and shuffle songs\
+\'a5 iPod songs submitted on update\
+\'a5 Workaround for iTunes Library XML ID key bug\
+\
+0.3.2 Released 2006-03-07\
+\'a5 Multiple iPod play redesign and bug fixes\
+\'a5 Workaround for a Windows XP drive letter assigning\
+\'a5 Exclude directories, artists or genres of music from submitting\
+\'a5 Various internal changes\
+\
+0.3.1 Released 2006-02-10\
+\'a5 Support for iTunes 6.0.2\
+\'a5 Support for multiple iPod plays\
+\'a5 iPod checked after updating in iTunes rather than by a gap\
+\'a5 Proxies that require authentication are now supported\
+\'a5 Customisation through the local.py file\
+\'a5 General improvements and bug fixes\
+\
+0.3b1 Released 2005-12-05\
+\'a5 System tray icon and statistics introduced\
+\'a5 Logging improvements\
+\'a5 XML parsing optimised\
+\'a5 Songs played from the iPod no longer look for a location\
+\'a5 iPod interval set to 15 minutes\
+\'a5 Inividual songs can be removed from cache\
+\'a5 Fixed a minor rehandshaking during non-typical downtime\
+\'a5 General improvements\
+\'a5 Custom version checking\
+\
+0.2.8 Released 2005-10-17\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural\pardirnatural
+\cf0 \'a5 iPod played Podcasts are now disqualified with a proper message (iTunes 6 only)\
+\'a5 iTunes played Podcasts are now disqualified\
+\'a5 Song gaps are now calculated with a single algorithm to fix an isolated DST issue\
+\'a5 Other improvements\
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\ql\qnatural\pardirnatural
+\cf0 \
+0.2.7 Released 2005-10-13\
+\'a5 Fixed a submission bug for songs tagged without an album\
+\'a5 Fixed a fatal error checking for MBIDs with the wrong file location\
+\
+0.2.6 Released 2005-10-13\
+\'a5 MBID parser optimised\
+\'a5 All disqualified songs are now logged\
+\'a5 Minor improvements to iTunes Events\
+\'a5 Fixed some debug values from last version\
+\'a5 Other bug fixes and improvements\
+\
+0.2.5 Released 2005-10-06\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\tx7280\tx7840\tx8400\tx8960\tx9520\tx10080\tx10640\tx11200\tx11760\tx12320\tx12880\tx13440\tx14000\tx14560\tx15120\tx15680\tx16240\tx16800\tx17360\tx17920\tx18480\tx19040\tx19600\tx20160\tx20720\tx21280\tx21840\tx22400\tx22960\tx23520\tx24080\tx24640\tx25200\tx25760\tx26320\tx26880\tx27440\tx28000\tx28560\tx29120\tx29680\tx30240\tx30800\tx31360\tx31920\tx32480\tx33040\tx33600\tx34160\tx34720\tx35280\tx35840\tx36400\tx36960\tx37520\tx38080\tx38640\tx39200\tx39760\tx40320\tx40880\tx41440\tx42000\tx42560\tx43120\tx43680\tx44240\tx44800\tx45360\tx45920\tx46480\tx47040\tx47600\tx48160\tx48720\tx49280\tx49840\tx50400\tx50960\tx51520\tx52080\tx52640\tx53200\tx53760\tx54320\tx54880\tx55440\tx56000\ql\qnatural\pardirnatural
+\cf0 \CocoaLigature0 \'a5 Fixed a bug that would disqualify iPod songs if it was one of two play counts\
+\'a5 Logging of all disqualified iPod songs\CocoaLigature1 \
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\ql\qnatural\pardirnatural
+\cf0 \
+0.2.4 Released 2005-10-04\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\tx7280\tx7840\tx8400\tx8960\tx9520\tx10080\tx10640\tx11200\tx11760\tx12320\tx12880\tx13440\tx14000\tx14560\tx15120\tx15680\tx16240\tx16800\tx17360\tx17920\tx18480\tx19040\tx19600\tx20160\tx20720\tx21280\tx21840\tx22400\tx22960\tx23520\tx24080\tx24640\tx25200\tx25760\tx26320\tx26880\tx27440\tx28000\tx28560\tx29120\tx29680\tx30240\tx30800\tx31360\tx31920\tx32480\tx33040\tx33600\tx34160\tx34720\tx35280\tx35840\tx36400\tx36960\tx37520\tx38080\tx38640\tx39200\tx39760\tx40320\tx40880\tx41440\tx42000\tx42560\tx43120\tx43680\tx44240\tx44800\tx45360\tx45920\tx46480\tx47040\tx47600\tx48160\tx48720\tx49280\tx49840\tx50400\tx50960\tx51520\tx52080\tx52640\tx53200\tx53760\tx54320\tx54880\tx55440\tx56000\ql\qnatural\pardirnatural
+\cf0 \CocoaLigature0 \'a5 iPod shuffle support\
+\'a5 Chunk submission restarted on submission failure\
+\'a5 POST string is logged under the ALL level on submission failures\
+\'a5 Version logging\
+\'a5 Fixed a bug with songs overflowing into iPod songs on slow machines\CocoaLigature1 \
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\ql\qnatural\pardirnatural
+\cf0 \
+0.2.3 Released 2005-09-30\
+\'a5 Fixed a bug that would cause the XML parsing to choke on iPod songs with no album\
+\'a5 More verbose logging of gaps in played songs\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
+\cf0 \'a5 iSproggler checks to see if another iSproggler is running\
+\'a5 Streams played in iTunes (with iSproggler closed) before playing iPod songs are now properly ignored\
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\ql\qnatural\pardirnatural
+\cf0 \
+0.2.2 Released 2005-09-27\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
+\cf0 \'a5 Non-ASCII (and space containing) usernames supported\
+\'a5 Safer handling of iSproggler 0.1 differently encoded files\
+\'a5 iPod support optimised\
+\'a5 iPod support no longer requires a Smart Playlist\
+\'a5 Removed COM iPod support\
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\ql\qnatural\pardirnatural
+\cf0 \
+0.2.1 Released 2005-09-26\
+\'a5 Fixed a fatal error truncating log when it doesn't exist\
+\
+0.2 Released 2005-09-26\
+\'a5 iTunes is no longer forced open\
+\'a5 iTunes Events are used to listen for when the connection is severed or suspended\
+\'a5 iSproggler will quit when iTunes is about to quit (before the scripting dialog if it is shown)\
+\'a5 More efficient polling of iTunes\
+\'a5 Seek protection re-introduced\
+\'a5 iPod playlist checking using COM (now deprecated) is more efficient and improves error handling\
+\'a5 iPod playlist checking uses XML by default, eliminating possible COM errors\
+\'a5 iPod songs are ensured to be in chronological order when cached\
+\'a5 Songs are added to cache if the cache is not empty to ensure chronological submission\
+\'a5 Cache is now submitted in smaller 10 song chunks\
+\'a5 Changed the way Unicode is encoded into UTF-8\
+\'a5 More efficient method of getting the location of files\
+\'a5 Improved handshaking\
+\'a5 HTTP connection failures handled more reliably\
+\'a5 Termination from iSprogglerCP is now tested and works if iSproggler if it is not in C:\\Program Files\
+\'a5 Log truncating\
+\'a5 Other fixes\
+\
+0.1 Released 2005-09-12\
+\'a5 Initial Release}
