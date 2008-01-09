@@ -4,8 +4,7 @@
 # The only required part of this script is the setup tuple
 
 # Change this to the root location
-#root = "Z:\\iSproggler"
-#root = "C:\\isproggler"
+root = "C:\\Projects\\iSproggler\\isproggler\\trunk"
 
 # The following extensions are required
 
@@ -13,7 +12,7 @@
 http://www.py2exe.org/
 http://www.wxpython.org/"""
 
-deployment = True
+deployment = False
 
 from distutils.core import setup
 import py2exe
@@ -25,19 +24,18 @@ from initimages import initimages
 import tarfile
 import zipfile
 
-root = os.path.split(sys.argv[0])[0]
+#root = os.path.split(sys.argv[0])[0]
 print "Root: ",root
 
 print "\nPackaging iSproggler version %s\n" % main._version_
 
 sys.argv.append("py2exe")
 
-
 os.mkdir(os.path.join(root,"build"))
 
 def targzsource():
-    shutil.copytree(root,os.path.join(os.path.split(root)[0],"iSproggler-src"))
-    temproot = os.path.join(os.path.split(root)[0],"iSproggler-src")
+    shutil.copytree(root,os.path.join(os.path.split(root)[0],"make"))
+    temproot = os.path.join(os.path.split(root)[0],"make")
     for filename in os.listdir(temproot):
         if filename.endswith(".pyc"):
             os.remove(os.path.join(temproot,filename))
@@ -52,7 +50,7 @@ def movefiles():
     except:
         pass
     if not os.path.exists(os.path.join(root,"build")):
-        os.makedirs(os.path.join(root,"build"))            
+        os.makedirs(os.path.join(root,"build"))
     #try:
     #    shutil.rmtree(os.path.join(root,"build\\data"))
     #except:
@@ -109,7 +107,7 @@ def createmsi():
     pass
 
 print "Creating tape archive..."
-targzsource()
+#targzsource()
 print "Moving and deleting files..."
 movefiles()
 print "Deleting .DS_Store files..."
@@ -121,10 +119,9 @@ print "Creating images..."
 #prepareshell()
 print
 
-
 setup(
     options = {"py2exe": {"typelibs":
-                          [('{9E93C96F-CF0D-43F6-8BA8-B807A3370712}', 0, 1, 9)],
+                          [('{9E93C96F-CF0D-43F6-8BA8-B807A3370712}', 0, 1, 12)],
                           "optimize": 2,
                           #"packages": ["encodings"],
                           "bundle_files": 1,
@@ -132,28 +129,20 @@ setup(
                           }},
 
 
-    zipfile = None,             
+    zipfile = None,
     windows = [{"script": os.path.join(root,"main.py"),
-
                 "dest_base" : "iSproggler",
-
-                "icon_resources": [(1, root+"\\icon.ico")],
-
+                "icon_resources": [(1, ".\\icon.ico")],
                 "version": main._version_,
-
-                "copyright": "David Nicolson",
-
+                "copyright": "",
                 }]
 )
 
 os.remove(os.path.join(os.path.join(root,"build"),"w9xpopen.exe"))
+
 print
 if deployment:
     print "Compressing executable..."
     upx()
-print "Creating ZIP archive..."
-zipapp()
-
-#if raw_input("Upload to server? [y/n]\n").tolower() == "y":
-#   ftpupload()
-    
+#print "Creating ZIP archive..."
+#zipapp()
