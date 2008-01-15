@@ -42,11 +42,12 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import sys
 import os
 import time
+import times
 import codecs
 import urllib
 import urllib2
 import re
-import md5
+import hashlib
 import math
 import cPickle
 import commands
@@ -71,8 +72,8 @@ import mbid
 
 
 
-_version_ = "1.1.0"
-_build_ = 20080115
+_version_ = "1.2.0"
+_build_ = 20090318
 _threaded_ = False #TODO
 
 local = {'debug': False,
@@ -120,12 +121,14 @@ class Scrobbler:
         self.setopener()
         self.manualipoderror = ""
         self.badstatsusline = 0
-
+        self.nowplayingurl = None
+        self.urlsubmit = None
         self.songssubmitted = 0
         self.songsqueued = self._lencache()
         self.submissionattempts = 0
         self.successfullsubmissions = 0
         self.lastsubmitted = {}
+        self.lastnowplayedid = None
         self.lastrawserverresponse = ""
         self.lastserverresponse = [True,"",0]
         self.pausesubmissions = False
@@ -328,12 +331,15 @@ class Scrobbler:
             username = main.prefs['username'].encode("utf-8")
         else:
             username = main.prefs['username']
+        timestamp = str(int(time.time()))
         url = "http://post.audioscrobbler.com/?" + \
             urllib.urlencode({
               "hs":"true",
-              "p":"1.1",
+              "p":"1.2.1",
               "c":"isp",
               "v":_version_,
+              "t": timestamp,
+              "a": hashlib.md5(main.prefs['password'] + timestamp).hexdigest(),
               "u":username
             })
 
@@ -341,7 +347,12 @@ class Scrobbler:
 
         try:
             if not main.local['socket']:
-                response = urllib2.urlopen(url).readlines()
+                host = url[:31]
+                request = url[32:]
+                req = urllib2.Request(url=host, data=request)
+                opener = urllib2.build_opener()
+                res = opener.open(req)
+                response = res.readlines()
             else:
                 log.verb("Using direct sockets")
                 responseraw = None
@@ -375,38 +386,33 @@ class Scrobbler:
                         main.local['socket'] = True
             return False
 
-        if response[0].startswith("UPTODATE"):
-            self.lastserverresponse = [True,"UPTODATE handshake response",int(time.time())]
-            log.verb("UPTODATE response from server")
+        if response[0].startswith("OK"):
+            self.lastserverresponse = [True,"OK handshake response",int(time.time())]
+            log.verb("OK response from server")
             try:
                 self.md5hash = re.sub("\n$","",response[1])
-                self.urlsubmit = re.sub("\n$","",response[2])
+                self.nowplayingurl = re.sub("\n$","",response[2])
+                log.debug("Now-Playing URL: %s" % self.nowplayingurl)
+                self.urlsubmit = re.sub("\n$","",response[3])
                 log.debug("Submit URL: %s" % self.urlsubmit)
             except IndexError:
                 log.error("Bad handshake response")
                 return False
             self.handshaked = True
             return True
-        if response[0].startswith("UPDATE"):
-            self.lastserverresponse = [True,"UPDATE handshake response",int(time.time())]
-            log.verb("UPDATE response from server")
-            match = re.match("UPDATE\s+(.*)\n",response[0])
-            log.verb("New plug-in version available: %s" % match.group(1))
-            try:
-                self.md5hash = re.sub("\n$","",response[1])
-                self.urlsubmit = re.sub("\n$","",response[2])
-                log.debug("Submit URL: %s" % self.urlsubmit)
-            except IndexError:
-                log.error("Bad handshake response")
-                return False
-            self.handshaked = True
-            return True
-        elif response[0].startswith("BADUSER"):
-            self.lastserverresponse = [False,"BADUSER handshake response",int(time.time())]
-            log.verb("BADUSER response from server")
-            log.error("Bad username")
+        elif response[0].startswith("BADAUTH"):
+            self.lastserverresponse = [False,"BADAUTH handshake response",int(time.time())]
+            log.verb("BADAUTH response from server")
+            log.verb(url)
+            log.error("Bad authentication details")
             self.handshaked = False
-            return False        
+            return False
+        elif response[0].startswith("BADTIME"):
+            self.lastserverresponse = [False,"BADTIME handshake response",int(time.time())]
+            log.verb("BADTIME response from server")
+            log.error("System clock may be incorrect.  Please reset clock and try again.")
+            self.handshaked = False
+            return False
         elif response[0].startswith("FAILED"):
             self.lastserverresponse = [False,"FAILED handshake response",int(time.time())]
             log.verb("FAILED response from server")
@@ -435,29 +441,35 @@ class Scrobbler:
         self.submissionattempts += 1
 
         n = 0
-        response = md5.md5(main.prefs['password']+self.md5hash).hexdigest()
-        submission = "u="+urllib.quote(main.prefs['username'])+"&s="+response
-        
+        submission = "s="+self.md5hash
+
         for song in songs:
-            submission += "&"+"a["+str(n)+"]="+urllib.quote(song['artist'].encode("utf-8"))
-            submission += "&"+"t["+str(n)+"]="+urllib.quote(song['name'].encode("utf-8"))
+            _submission  = "&"+"a["+str(n)+"]="+urllib.quote(song['artist'].encode("utf-8"))
+            _submission += "&"+"t["+str(n)+"]="+urllib.quote(song['name'].encode("utf-8"))
             if song['album'] != "":
-                submission += "&"+"b["+str(n)+"]="+urllib.quote(song['album'].encode("utf-8"))
+                _submission += "&"+"b["+str(n)+"]="+urllib.quote(song['album'].encode("utf-8"))
             else:
-                submission += "&"+"b["+str(n)+"]="+""
+                _submission += "&"+"b["+str(n)+"]="+""
             if song['mbid'] is not None:
-                submission += "&"+"m["+str(n)+"]="+song['mbid']
+                _submission += "&"+"m["+str(n)+"]="+song['mbid']
             else:
-                submission += "&"+"m["+str(n)+"]="+""
-            submission += "&"+"l["+str(n)+"]="+str(song['duration'])
-            submission += "&"+"i["+str(n)+"]="+urllib.quote(song['time'])
+                _submission += "&"+"m["+str(n)+"]="+""
+            _submission += "&"+"l["+str(n)+"]="+str(song['duration'])
+            if time.localtime()[-1] and time.daylight:
+              _submission += "&"+"i["+str(n)+"]="+str(times.isotounix(str(song['time']), -time.altzone))
+            else:
+              _submission += "&"+"i["+str(n)+"]="+str(times.isotounix(str(song['time']), -time.timezone))
+            _submission += "&"+"r["+str(n)+"]=" #Rating, skip this
+            _submission += "&"+"n["+str(n)+"]=" #FIXME - This is the Track Number, need to get this in itunes.py
+            _submission += "&"+"o["+str(n)+"]=P" #Source, hardcoded to "P - Chosen by the user"
+            submission += _submission
             n += 1
-        
+
         try:
             log.verb("Last submitted song %s UTC" % self.lastsong['time'])
         except:
-            pass        
-        
+            pass
+
         try:
             match = re.match("(.*)&a\[1\]",submission)
             log.debug("Submitting %s and others..." % match.group(1))
@@ -494,7 +506,7 @@ class Scrobbler:
                     response = self._parsehttp(response)
                 except Exception, err:
                     log.error("Received bad submission response [%s: %s] <%s>" % (sys.exc_info()[0],err,responseraw))
-                    return False     
+                    return False
         except Exception, err:
             self.lastserverresponse = [False,"Submission connection failure",int(time.time())]
             log.error("Submission connection failure: %s: %s [%s]" % (sys.exc_info()[0],err,self.urlsubmit))
@@ -546,9 +558,9 @@ class Scrobbler:
             self.subinterval = 1
             log.debug("Setting submission interval to 1")
             return True
-        elif response[0].startswith("BADAUTH"):
-            self.lastserverresponse = [False,"BADAUTH submission response",int(time.time())]
-            log.verb("BADAUTH response from server")
+        elif response[0].startswith("BADSESSION"):
+            self.lastserverresponse = [False,"BADSESSION submission response",int(time.time())]
+            log.verb("BADSESSION response from server")
             log.error("Incorrect username or password")
             log.verb("Voiding current handshake due to submission authentication failure")
             self.handshaked = False
@@ -558,7 +570,7 @@ class Scrobbler:
             if self.subintervaltime > int(time.time()) + 120 * 60:
                 self.subintervaltime = int(time.time()) + 120 * 60
             log.debug("Retrying submission in %d seconds [%d]" % (self.subinterval * 10,self.subintervaltime))
-            return False        
+            return False
         elif response[0].startswith("FAILED"):
             self.lastserverresponse = [False,"FAILED submission response",int(time.time())]
             log.verb("FAILED response from server")
@@ -574,7 +586,7 @@ class Scrobbler:
                 return False
 
             log.verb("Voiding current handshake due to submission failure")
-           
+
             self.handshaked = False
             self.handshake()
             self.subinterval *= 2
@@ -594,7 +606,7 @@ class Scrobbler:
                 self.subintervaltime = int(time.time()) + 120 * 60
             log.debug("Retrying submission in %d seconds [%d]" % (self.subinterval * 10,self.subintervaltime))
             return False
-            
+
     def submitcache(self):
         if self.songsqueued > 0:
             if int(time.time()) >= self.subintervaltime:
@@ -607,7 +619,65 @@ class Scrobbler:
                 except:
                     log.verb("Attempting resubmission later")
                 log.debug("Submission interval: %d" % self.subinterval)
-    
+
+    def nowplaying(self,song):
+        """Sends the Now-Playing songs to Audioscrobbler."""
+
+        submission = "s="+self.md5hash
+        submission += "&a="+urllib.quote(song['artist'].encode("utf-8"))
+        submission += "&t="+urllib.quote(song['name'].encode("utf-8"))
+        if song['album'] != "":
+            submission += "&b="+urllib.quote(song['album'].encode("utf-8"))
+        else:
+            submission += "&b="+""
+        if song['mbid'] is not None:
+            submission += "&m="+song['mbid']
+        else:
+            submission += "&m="+""
+        submission += "&l="+str(song['duration'])
+        submission += "&n=" #FIXME - This is the Track Number, need to get this in itunes.py
+
+        try:
+            log.verb("Set Now Playing %s" % time.strftime("%Y-%m-%d %H:%M:%S",time.localtime()))
+        except:
+            pass
+
+        if not main.local['socket']:
+            o = urllib2.urlopen(self.nowplayingurl,submission)
+            response = o.readlines()
+        else:
+            log.verb("Using direct sockets")
+            responseraw = None
+            socket.setdefaulttimeout(60)
+            address, request = self.nowplayingurl[7:].split('/')
+            host, port = address.split(':')
+            request = "/"+request
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.connect((host, int(port)))
+            sock.send("POST %s HTTP/1.0\r\n" % request)
+            sock.send("Host: %s\r\n" % host)
+            sock.send("User-Agent: %s\r\n" % ("iSproggler/"+_version_))
+            sock.send("Content-Length: %s\r\n" % len(submission))
+            sock.send("Content-Type: application/x-www-form-urlencoded\r\n\r\n")
+            sock.send("%s\r\n\r\n" % submission)
+            try:
+                responseraw = sock.recv(1024)
+                if responseraw == "":
+                    log.error("Received empty submission response")
+                headers, response = responseraw.split("\r\n\r\n")
+                response = self._parsehttp(response)
+            except Exception, err:
+                log.error("Received bad submission response [%s: %s] <%s>" % (sys.exc_info()[0],err,responseraw))
+
+        if response[0].startswith("OK"):
+            log.verb("OK response from server")
+            self.lastnowplayedid = song['id']
+        elif response[0].startswith("BADSESSION"):
+            log.verb("BADSESSION response from server")
+            log.error("Incorrect username or password")
+        else:
+            log.warning("Received unrecognizable submission response: %s" % response[0])
+
     def getMBID(self,song):
         """Finds a MusicBrainz track identifier embedded in an ID3v2 tag."""
         if not main.local['mbidsupport']:
@@ -675,18 +745,18 @@ class Scrobbler:
         """Adds a song played when closed."""
         if f.cacheadd(song.copy()):
             self.songsqueued += 1
-    
+
     def _pluralise(self,integer):
         if integer == 1:
             return ""
         else:
             return "s"
-    
+
     def checkipodsongs(self):
         """Checks to see if any songs have been played in iTunes without iSproggler."""
         #if not main.prefs['ipodsupport']:
         #    return
-        
+
         if itunes.xml_file is not None:
             if itunes.xml_file != main.prefs['xmlfile']:
                 log.warning("iTunes is using a different iTunes Music Library.xml than the default [default: %s, iTunes: %s]" % (main.prefs['xmlfile'],itunes.xml_file))
@@ -765,7 +835,7 @@ class Scrobbler:
         else:
             self.manualipoderror = "Unable to check for iPod-played songs until a song is played in iTunes"
             return False
-        
+
         return True
 
     def chunkcheck(self,songstosubmit):
@@ -791,7 +861,7 @@ class Scrobbler:
         chunked = []
         index = -1
         maxlength = main.local['batchsize']
-        
+
         if len(songs) > maxlength:
             counter = 0
             for item in songs:
@@ -851,7 +921,7 @@ class Files:
         except cPickle.UnpicklingError:
             log.error("Unpickling error reading %s" % filename)
             return []
-            
+
     def cacheread(self):
         """Reads cache into a list of dictionaries."""
         try:
@@ -866,7 +936,7 @@ class Files:
             if len(self.cacheread()) > 0:
                 return True
         return False
-        
+
     def songhistoryread(self):
         """Returns a list of the last played (not necessarily submitted) songs."""
         try:
@@ -894,7 +964,7 @@ class Files:
         song['time'] = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(time.time()-int(song['position'])))
         s.lastsong = song.copy()
         self._writehistory(song)
-    
+
     def updateipodepoch(self):
         self._writehistory(s.lastsong)
 
@@ -934,12 +1004,12 @@ class Files:
             return True
         except (IOError, EOFError), err:
             log.error("Unable to update cache file %s" % err)
-    
+
     def _sortdictlist(self,songs):
         sorted = map(lambda x, key="time": (x['time'], x), songs)
         sorted.sort()
         return map(lambda (key, x): x, sorted)
-        
+
     def chronorder(self):
         cache = self._unpickle("iSproggler Cache.pkl")
         self._pickle("iSproggler Cache.pkl",self._sortdictlist(cache))
@@ -955,7 +1025,7 @@ class Files:
             if songhdelete:
                 self._pickle("iSproggler Song History.pkl",[])
                 log.verb("iSproggler 0.1 song history file cleared")
-                
+
             cache = self._unpickle("iSproggler Cache.pkl")
             for cachesong in cache:
                 if cachesong['time'].count("+") > 0:
@@ -980,13 +1050,13 @@ class Main:
             if self.isrunning():
                 sys.exit(1)
         self.plugincheck()
-    
+
     def initalert(self,text):
         if sys.platform.startswith("win"):
             MessageBox(0,text,"iSproggler",1)
         else:
             print text
-    
+
     def isrunning(self):
         """Checks to see if iSproggler is already running."""
         isprogglers = 0
@@ -1017,7 +1087,7 @@ class Main:
             ntp_t = time.localtime(t)
             local_t = time.localtime()
             diff = abs(time.mktime(ntp_t) - time.mktime(local_t))
-            
+
             if diff > 600:
                 log.warning("Check your system clock, time is %f seconds off [local: %s, ntp: %s]" % \
                     (diff,time.strftime("%Y-%m-%d %H:%M:%S",local_t)+" "+time.tzname[0],time.strftime("%Y-%m-%d %H:%M:%S",ntp_t)+" "+time.tzname[0]))
@@ -1029,7 +1099,7 @@ class Main:
             return True
         if os.path.exists(os.path.join(os.path.join(os.getenv("USERPROFILE"),"\\Application Data\\Apple Computer\\iTunes\\iTunes Plug-ins\\"),plugin)):
             return True
-        
+
         return False
 
     def iscrobblercheck(self):
@@ -1113,7 +1183,7 @@ class Main:
                 sys.exit(1)
         else:
             self.mypath = mypath
-        
+
     def setprefs(self):
         """Reads preferences."""
         defaultprefs = {'username': "",
@@ -1160,7 +1230,7 @@ class Main:
     def ready(self):
         if self.prefs['username'] == "" or self.prefs['password'] == "":
             return False
-        return True    
+        return True
 
     def cli(self):
         if main.local['console']:
@@ -1178,7 +1248,7 @@ class Main:
         import control
         control = control.Control()
         control.showmenu()
-        sys.exit()    
+        sys.exit()
 
     def initialhandshake(self):
         socket.setdefaulttimeout(20)
@@ -1207,18 +1277,18 @@ class Main:
                 except ValueError:
                     pass
         return drivelist
-    
+
     def ipodcheck(self):
         if int(time.time()) > self.delayedipodcheck and \
         self.delayedipodcheck != 0:
             self.delayedipodcheck = 0
             s.checkipodsongs()
-            
+
         if self.delayedipodcheck > 0:
             #log.verb("Not checking iPods until sync has finished [%s]" % int(time.time()) - self.delayedipodcheck)
             log.verb("Not checking iPods until sync has finished")
             return
-            
+
         drives = self._drivelist()
         newdrives = []
         for drive in drives:
@@ -1230,7 +1300,7 @@ class Main:
         if main.local['ipoddrivename'] != "":
             if main.local['ipoddrivename'] in newdrives:
                 newdrives = [main.local['ipoddrivename']]
-        
+
         for drive in newdrives:
             #card readers and zip drives should fail here
             if sys.platform.startswith("win"):
@@ -1331,6 +1401,11 @@ class Main:
         try:
             s.playingsong = itunes.getsong().copy()
             try:
+                if s.handshaked and s.playingsong['id'] != s.lastnowplayedid:
+                    s.nowplaying(s.playingsong.copy())
+            except:
+                pass # If this fails, it's not the end of the world, so move on.
+            try:
                 if s.playingsong[0] == "not_connected":
                     s.playingsong = None
                     if self.prefs['itunesinstall'] == False:
@@ -1424,7 +1499,7 @@ if __name__ == "__main__":
         log.verb("Session started [%s beta %s]" % (_version_,abs(_build_)))
     else:
         log.verb("Session started [%s build %s]" % (_version_,_build_))
-    
+
     main.timecheck()
 
     if sys.platform.startswith("win"):
@@ -1449,6 +1524,6 @@ if __name__ == "__main__":
 
         #if _threaded_:
         #    thread.start_new_thread(main.main, ())
-        
+
         app = gui.MyApp(0)
         app.MainLoop()
