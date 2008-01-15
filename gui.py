@@ -1,32 +1,26 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-#from wxPython.wx import *
-from wxPython.wx import wxApp, wxDialog, wxFileDialog, wxFrame, wxTaskBarIcon, \
-wxTimer, wxMenu, wxMenuBar, wxPlatform, wxSize, wxImage, wxBitmapFromImage, \
-wxStaticBitmap,  wxBoxSizer, wxStaticText, wxTextCtrl, wxCheckBox, wxButton, \
-wxDefaultSize, wxGROW, wxALL, wxBOTH, wxID_OK, wxID_CANCEL, wxOPEN, \
-wxFRAME_NO_TASKBAR, wxBITMAP_TYPE_PNG, wxBITMAP_TYPE_ICO, wxDLG_PNT, \
-wxHORIZONTAL, wxVERTICAL, wxALIGN_CENTER, wxALIGN_RIGHT, wxTE_PASSWORD, \
-wxTE_READONLY, wxDLG_SZE, EVT_TIMER, EVT_MENU, EVT_CHECKBOX, EVT_BUTTON, \
-EVT_TASKBAR_RIGHT_UP, EVT_TASKBAR_LEFT_DCLICK, EVT_LEFT_DOWN, true, false
 from sys import exit, argv
-from os import path, getenv
-from random import choice
+from os  import path, getenv
+
+from random     import choice
+from urllib     import quote
+from urllib2    import urlopen
+from win32gui   import MessageBox
 from webbrowser import open_new
-from urllib2 import urlopen
-from socket import setdefaulttimeout
-import md5
+from socket     import setdefaulttimeout
+
+from wx.lib.hyperlink import HyperLinkCtrl
+
+import wx
 import time
-from win32gui import MessageBox
-import win32process, win32api, win32con
-#from win32com.shell import shell, shellcon
-
-#import cStringIO
+import hashlib
 import _winreg
+import win32process, win32api, win32con
 
-import quotes
 import log
+import quotes
 
 log = log.Log()
 
@@ -72,6 +66,11 @@ wxID_PLAYING = 3005
 wxID_LASTSUB = 3006
 wxID_ITUNES = 3007
 wxID_OPENLOG = 3008
+wxID_PLAYTRK = 3009
+wxID_PLAYART = 3010
+wxID_LASTART = 3011
+wxID_LASTTRK = 3012
+wxID_PROFILE = 3013
 
 PREFS_WIDTH = 350
 PREFS_HEIGHT = 400
@@ -93,11 +92,11 @@ class DummyClass:
         self.successfullsubmissions = 4
         self.pausesubmissions = False
         self.disablesubmissions = False
-        
+
         #main
         self.updateonunmount = False
         self.ipodmounted = False
-        
+
         #main
         self.prefs = {'username': "dave",
                       'password': "",
@@ -106,10 +105,10 @@ class DummyClass:
                       'ipodmultiple': False,
                       'xmlfile': "",
                       'ipodmanual': False}
-                      
+
         #itunes
         self.connected = True
-    
+
     #s
     def submissionstate(self,mode,bool):
         if mode == "disable":
@@ -122,7 +121,7 @@ class DummyClass:
                 self.pausesubmissions = False
             elif bool:
                 self.pausesubmissions = True
-    
+
     #main
     def ready(self):
         return True
@@ -132,13 +131,13 @@ class DummyClass:
         pass
     def ipodcheck(self):
         pass
-    
+
     #itunes
     def pumpevents(self):
         pass
     def cleanup(self):
         pass
-    
+
     #f
     def _pickle(self,name,data):
         print "Saving new prefs: "+repr(main.prefs)
@@ -147,76 +146,76 @@ class DummyClass:
 class DummyException(Exception):
     pass
 
-class PrefsDialog(wxDialog):
+class PrefsDialog(wx.Dialog):
     def __init__(self, parent):
-        wxDialog.__init__(self, parent, -1, "iSproggler Preferences", (-1,-1), wxSize(PREFS_WIDTH,PREFS_HEIGHT))
+        wx.Dialog.__init__(self, parent, -1, "iSproggler Preferences", (-1,-1), wx.Size(PREFS_WIDTH,PREFS_HEIGHT))
 
         if inlineimages:
-            #bitmap = wxBitmapFromImage(wxImageFromStream(cStringIO.StringIO(imagesdict['lastfm.png'])))
+            #bitmap = wx.BitmapFromImage(wx.ImageFromStream(cStringIO.StringIO(imagesdict['lastfm.png'])))
             lastfm_bitmap = images("lastfm.png")
             donate_bitmap = images("donate.gif")
         else:
-            lastfm_image = wxImage(path.join(path.abspath(path.dirname(argv[0])),"data\\lastfm.png"), wxBITMAP_TYPE_PNG)
-            lastfm_bitmap = wxBitmapFromImage(lastfm_image)
-            donate_image = wxImage(path.join(path.abspath(path.dirname(argv[0])),"data\\donate.gif"), wxBITMAP_TYPE_GIF)
-            donate_bitmap = wxBitmapFromImage(donate_image)
-            
-        #wxStaticBitmap(self, -1, bitmap, wxDLG_PNT(self,70,30))
-        #wxStaticText(self, -1, "iSproggler Version %s" % _version_, wxDLG_PNT(self,80,80))
-        self.box = wxBoxSizer(wxVERTICAL)
+            lastfm_image = wx.Image(path.join(path.abspath(path.dirname(argv[0])),"data\\lastfm.png"), wx.BITMAP_TYPE_PNG)
+            lastfm_bitmap = wx.BitmapFromImage(lastfm_image)
+            donate_image = wx.Image(path.join(path.abspath(path.dirname(argv[0])),"data\\donate.gif"), wxBITMAP_TYPE_GIF)
+            donate_bitmap = wx.BitmapFromImage(donate_image)
+
+        #wx.StaticBitmap(self, -1, bitmap, wx.DLG_PNT(self,70,30))
+        #wx.StaticText(self, -1, "iSproggler Version %s" % _version_, wx.DLG_PNT(self,80,80))
+        self.box = wx.BoxSizer(wx.VERTICAL)
         #self.box.Add((30, 30), 0)
-        #self.box.Add(wxStaticBitmap(self, -1, lastfm_bitmap), 0, wxALIGN_CENTER)
+        #self.box.Add(wx.StaticBitmap(self, -1, lastfm_bitmap), 0, wx.ALIGN_CENTER)
         #self.box.Add((15, 15), 0)
 
         self.box.Add((15, 15), 0)
-        self.box.Add(wxStaticBitmap(self, -1, lastfm_bitmap), 0, wxALIGN_CENTER)
+        self.box.Add(wx.StaticBitmap(self, -1, lastfm_bitmap), 0, wx.ALIGN_CENTER)
         self.box.Add((10, 10), 0)
-        self.box.Add(wxStaticText(self, -1, "iSproggler Version %s" % _version_), 0, wxALIGN_CENTER)
+        self.box.Add(wx.StaticText(self, -1, "iSproggler Version %s" % _version_), 0, wx.ALIGN_CENTER)
         self.box.Add((25, 25), 0)
 
-        self.paypal = wxStaticBitmap(self, wxID_DONATE, donate_bitmap)
-        self.paypal.Bind(EVT_LEFT_DOWN, self.Donate)
-        self.box.Add(self.paypal, 0, wxALIGN_CENTER)
+        self.paypal = wx.StaticBitmap(self, wxID_DONATE, donate_bitmap)
+        self.paypal.Bind(wx.EVT_LEFT_DOWN, self.Donate)
+        self.box.Add(self.paypal, 0, wx.ALIGN_CENTER)
         #self.SetSizer(self.box)
 
-        wxStaticText(self, -1, "Username:", wxDLG_PNT(self,7,116))
-        self.username = wxTextCtrl(self, wxID_USERNAME, "", wxDLG_PNT(self,50,114))
+        wx.StaticText(self, -1, "Username:", wx.DLG_PNT(self,7,116))
+        self.username = wx.TextCtrl(self, wxID_USERNAME, "", wx.DLG_PNT(self,50,114))
         self.username.SetValue(main.prefs['username'])
-        wxStaticText(self, -1, "Password:", wxDLG_PNT(self,7,133))
-        self.password = wxTextCtrl(self, wxID_PASSWORD, "", wxDLG_PNT(self,50,131), wxDefaultSize, wxTE_PASSWORD)
+        wx.StaticText(self, -1, "Password:", wx.DLG_PNT(self,7,133))
+        self.password = wx.TextCtrl(self, wxID_PASSWORD, "", wx.DLG_PNT(self,50,131), wx.DefaultSize, wx.TE_PASSWORD)
         if main.prefs['password'] != "":
             self.password.SetValue("*" * int(main.prefs['passlength']))
 
-        self.ipodsupport = wxCheckBox(self, wxID_IPODSUPPORT, "Enable iPod Support", wxDLG_PNT(self,7,151))
-        self.ipodmultiple = wxCheckBox(self, wxID_IPODMULTIPLE, "Enable Multiple iPod Plays", wxDLG_PNT(self,100,151))
-        self.ipodmanual = wxCheckBox(self, wxID_IPODMANUAL, "Only Check Manually Updated iPods", wxDLG_PNT(self,100,166))
-        
-        #wxStaticText(self, -1, "iTunes Library XML File:", wxDLG_PNT(self,7,167))
-        #self.xmlfile = wxTextCtrl(self, wxID_XMLFILE, "", wxDLG_PNT(self,7,180),wxDLG_SZE(self,174,-1),wxTE_READONLY)
+        self.ipodsupport = wx.CheckBox(self, wxID_IPODSUPPORT, "Enable iPod Support", wx.DLG_PNT(self,7,151))
+        self.ipodmultiple = wx.CheckBox(self, wxID_IPODMULTIPLE, "Enable Multiple iPod Plays", wx.DLG_PNT(self,100,151))
+        self.ipodmanual = wx.CheckBox(self, wxID_IPODMANUAL, "Only Check Manually Updated iPods", wx.DLG_PNT(self,100,166))
+
+        #wx.StaticText(self, -1, "iTunes Library XML File:", wx.DLG_PNT(self,7,167))
+        #self.xmlfile = wx.TextCtrl(self, wxID_XMLFILE, "", wx.DLG_PNT(self,7,180),wx.DLG_SZE(self,174,-1),wx.TE_READONLY)
         self.xmlfile = ""
         #if main.prefs['ipodsupport']:
         #    self.xmlfile.SetValue(str(main.prefs['xmlfile']))
-        #self.xmlbutton = wxButton(self, wxID_XMLBUTTON, "Choose", wxDLG_PNT(self,185,180),(60,20))
+        #self.xmlbutton = wx.Button(self, wxID_XMLBUTTON, "Choose", wx.DLG_PNT(self,185,180),(60,20))
 
-        self.loginrun = wxCheckBox(self, wxID_LOGINRUN, "Run When Windows Starts", wxDLG_PNT(self,7,186))
+        self.loginrun = wx.CheckBox(self, wxID_LOGINRUN, "Run When Windows Starts", wx.DLG_PNT(self,7,186))
 
-        #wxButton(self, wxID_CANCEL, "Cancel", wxDLG_PNT(self,120,213))
-        #okbutton = wxButton(self, wxID_OK, "OK", wxDLG_PNT(self,175,213)).SetDefault()
-        #wxButton(self, wxID_CANCEL, "Cancel", wxPoint(179,346))
-        #okbutton = wxButton(self, wxID_OK, "OK", wxPoint(261,346)).SetDefault()
-        #self.vbuttonbox = wxBoxSizer(wxVERTICAL)
-        self.hbuttonbox = wxBoxSizer(wxHORIZONTAL)
-        #self.box.Add((0,235),0,wxGROW)
-        self.box.Add((-1,-1), -1, wxGROW|wxALL)
-        cancelbutton = wxButton(self, wxID_CANCEL, "Cancel")
+        #wx.Button(self, wx.ID_CANCEL, "Cancel", wx.DLG_PNT(self,120,213))
+        #okbutton = wx.Button(self, wx.ID_OK, "OK", wx.DLG_PNT(self,175,213)).SetDefault()
+        #wx.Button(self, wx.ID_CANCEL, "Cancel", wx.Point(179,346))
+        #okbutton = wx.Button(self, wx.ID_OK, "OK", wx.Point(261,346)).SetDefault()
+        #self.vbuttonbox = wx.BoxSizer(wx.VERTICAL)
+        self.hbuttonbox = wx.BoxSizer(wx.HORIZONTAL)
+        #self.box.Add((0,235),0,wx.GROW)
+        self.box.Add((-1,-1), -1, wx.GROW|wx.ALL)
+        cancelbutton = wx.Button(self, wx.ID_CANCEL, "Cancel")
         self.hbuttonbox.Add(cancelbutton)
         self.hbuttonbox.Add((7, 7))
-        okbutton = wxButton(self, wxID_OK, "OK")
+        okbutton = wx.Button(self, wx.ID_OK, "OK")
         self.hbuttonbox.Add(okbutton)
         self.hbuttonbox.Add((7, 7))
-        #self.vbuttonbox.Add(self.hbuttonbox, 0, wxALIGN_RIGHT)
+        #self.vbuttonbox.Add(self.hbuttonbox, 0, wx.ALIGN_RIGHT)
         #self.vbuttonbox.Add((7, 7), 0)
-        self.box.Add(self.hbuttonbox, 0, wxALIGN_RIGHT)
+        self.box.Add(self.hbuttonbox, 0, wx.ALIGN_RIGHT)
         self.box.Add((7, 7))
         #self.SetSizer(self.vbuttonbox)
         self.SetSizer(self.box)
@@ -224,30 +223,26 @@ class PrefsDialog(wxDialog):
         #self.ipodmultiple.Disable()
         if main.prefs['ipodsupport']:
             self.xmlfile = main.prefs['xmlfile']
-            self.ipodsupport.SetValue(true)
+            self.ipodsupport.SetValue(True)
         else:
             self.ipodmanual.Disable()
             self.ipodmultiple.Disable()
             #self.ipodmanual.Disable()
 
         if main.prefs['ipodmultiple']:
-            self.ipodmultiple.SetValue(true)
+            self.ipodmultiple.SetValue(True)
         if main.prefs['ipodmanual']:
-            self.ipodmanual.SetValue(true)
-        
-        if self.LoginRun():
-            self.loginrun.SetValue(true)
-        else:
-            self.loginrun.SetValue(false)
+            self.ipodmanual.SetValue(True)
 
+        self.loginrun.SetValue(self.LoginRun())
         okbutton.SetDefault()
 
-        EVT_CHECKBOX(self, wxID_IPODSUPPORT, self.iPodSupport)
-        EVT_CHECKBOX(self, wxID_IPODMULTIPLE, self.iPodMultiple)
-        EVT_CHECKBOX(self, wxID_IPODMANUAL, self.iPodManual)
-        
-        #EVT_LEFT_DOWN(self, wxID_DONATE, self.Donate)
-        #self.Bind(EVT_LEFT_DOWN, wxID_DONATE, self.Donate)
+        wx.EVT_CHECKBOX(self, wxID_IPODSUPPORT, self.iPodSupport)
+        wx.EVT_CHECKBOX(self, wxID_IPODMULTIPLE, self.iPodMultiple)
+        wx.EVT_CHECKBOX(self, wxID_IPODMANUAL, self.iPodManual)
+
+        #wx.EVT_LEFT_DOWN(self, wxID_DONATE, self.Donate)
+        #self.Bind(wx.EVT_LEFT_DOWN, wxID_DONATE, self.Donate)
 
     def Donate(self, event):
         try:
@@ -287,7 +282,7 @@ class PrefsDialog(wxDialog):
                 MessageBox(0,"iPod support is now enabled.\n\nSongs played after %s UTC on an iPod will now be submitted when the iPod is synced.\n\nIf the iPod is automatically updated, the process automatic. If disk use is enabled, eject the iPod after it has synced.\n\nIf \"Manually manage music [and videos]\" is checked in the iPod settings, select the \"Update iPod\" iSproggler menu item when the iPod is plugged in. If there is not a Smart Playlist on the iPod, create a one titled \"Recently Played\" with the condition: Last Played in the last 2 weeks." % s.lastsong['time'],"iSproggler",1)
                 log.verb("iPod support enabled")
                 log.verb("iPod-played songs played after %s UTC will be submitted" % s.lastsong['time'])
-                    
+
                 if path.exists(xmlfile):
                     log.verb("Found XML file: %s" % xmlfile)
                     self.xmlfile = xmlfile
@@ -303,39 +298,39 @@ class PrefsDialog(wxDialog):
             #self.xmlfile.Enable()
             #self.xmlbutton.Enable()
         else:
-            #self.ipodmultiple.SetValue(false)
-            #self.ipodmanual.SetValue(false)
+            #self.ipodmultiple.SetValue(False)
+            #self.ipodmanual.SetValue(False)
             self.ipodmultiple.Disable()
             self.ipodmanual.Disable()
 
     def XMLDialog(self):
         defaultpath = path.join(getenv("USERPROFILE"),"My Documents")
-        #xmldlg = wxFileDialog(self, "Choose your XML file...", defaultpath, "", "iTunes Music Library.xml", wxOPEN)
-        xmldlg = wxFileDialog(self, "Choose your XML file...", defaultpath, "", "*.xml", wxOPEN)
-        if xmldlg.ShowModal() == wxID_OK:
+        #xmldlg = wx.FileDialog(self, "Choose your XML file...", defaultpath, "", "iTunes Music Library.xml", wx.OPEN)
+        xmldlg = wx.FileDialog(self, "Choose your XML file...", defaultpath, "", "*.xml", wx.OPEN)
+        if xmldlg.ShowModal() == wx.ID_OK:
             self.xmlfile = xmldlg.GetPath()
             log.verb("Manually found XML file: %s" % self.xmlfile)
             self.ipodmultiple.Enable()
             self.ipodmanual.Enable()
         else:
-            self.ipodsupport.SetValue(false)
+            self.ipodsupport.SetValue(False)
             #for some reason Disable() doesn't work here
             self.ipodmultiple.Disable()
-            #self.ipodmultiple.SetValue(false)
+            #self.ipodmultiple.SetValue(False)
             self.ipodmanual.Disable()
-            #self.ipodmanual.SetValue(false)
+            #self.ipodmanual.SetValue(False)
 
         xmldlg.Destroy()
-    
+
     def iPodMultiple(self, event):
         if self.ipodmultiple.GetValue():
             if self.ipodmanual.GetValue():
-                self.ipodmanual.SetValue(false)
+                self.ipodmanual.SetValue(False)
 
     def iPodManual(self, event):
         if self.ipodmanual.GetValue():
             if self.ipodmultiple.GetValue():
-                self.ipodmultiple.SetValue(false)
+                self.ipodmultiple.SetValue(False)
 
     def LoginRun(self):
         try:
@@ -349,66 +344,67 @@ class PrefsDialog(wxDialog):
             globals()['LOGIN_RUN'] = False
         return False
 
-class StatsDialog(wxDialog):
+class StatsDialog(wx.Dialog):
     def __init__(self, parent):
-        wxDialog.__init__(self, parent, -1, "iSproggler Statistics", (-1,-1), wxSize(STATS_WIDTH,STATS_HEIGHT))
-       
-        wxStaticText(self, -1, "Songs Submitted:", wxDLG_PNT(self,7,5))
-        self.songssubmitted = wxStaticText(self, wxID_SONGSSUB, "0", wxDLG_PNT(self,175,5))
-        wxStaticText(self, -1, "Songs Queued for Submission:", wxDLG_PNT(self,7,15))
-        self.songsqueued = wxStaticText(self, wxID_SONGSQUE, "0", wxDLG_PNT(self,175,15))
-        wxStaticText(self, -1, "Submission Attempts:", wxDLG_PNT(self,7,25))
-        self.submissionattempts = wxStaticText(self, wxID_SUBATTEM, "0", wxDLG_PNT(self,175,25))
-        wxStaticText(self, -1, "Successful Submissions:", wxDLG_PNT(self,7,35))
-        self.successfullsubmissions = wxStaticText(self, wxID_SUCCSUBS, "0", wxDLG_PNT(self,175,35))
+        wx.Dialog.__init__(self, parent, -1, "iSproggler Statistics", (-1,-1), wx.Size(STATS_WIDTH,STATS_HEIGHT))
 
-        wxStaticText(self, -1, "Last Submitted Song:", wxDLG_PNT(self,7,55))
-        self.lastsubmitted = wxStaticText(self, wxID_PLAYING, "", wxDLG_PNT(self,7,65))
-        wxStaticText(self, -1, "Playing Song:", wxDLG_PNT(self,7,80))
-        self.playingsong = wxStaticText(self, wxID_LASTSUB, "", wxDLG_PNT(self,7,90))  
-        wxStaticText(self, -1, "iTunes Status:", wxDLG_PNT(self,7,105))
-        self.itunesstatus = wxStaticText(self, wxID_ITUNES, "", wxDLG_PNT(self,7,115))       
-        wxStaticText(self, -1, "Last Server Response:", wxDLG_PNT(self,7,130))
-        self.lastresponse = wxStaticText(self, wxID_ITUNES, "", wxDLG_PNT(self,7,140))
-        
-        #openlogbutton = wxButton(self, wxID_OPENLOG, "Open Log")
-        okbutton = wxButton(self, wxID_OK, "OK")
+        wx.StaticText(self, -1, "Songs Submitted:", wx.DLG_PNT(self,7,5))
+        self.songssubmitted = wx.StaticText(self, wxID_SONGSSUB, "0", wx.DLG_PNT(self,175,5))
+        wx.StaticText(self, -1, "Songs Queued for Submission:", wx.DLG_PNT(self,7,15))
+        self.songsqueued = wx.StaticText(self, wxID_SONGSQUE, "0", wx.DLG_PNT(self,175,15))
+        wx.StaticText(self, -1, "Submission Attempts:", wx.DLG_PNT(self,7,25))
+        self.submissionattempts = wx.StaticText(self, wxID_SUBATTEM, "0", wx.DLG_PNT(self,175,25))
+        wx.StaticText(self, -1, "Successful Submissions:", wx.DLG_PNT(self,7,35))
+        self.successfullsubmissions = wx.StaticText(self, wxID_SUCCSUBS, "0", wx.DLG_PNT(self,175,35))
 
-        #self.hbuttonbox_openlog = wxBoxSizer(wxHORIZONTAL)
+        wx.StaticText(self, -1, "Last Submitted Song:", wx.DLG_PNT(self,7,55))
+        wx.StaticText(self, -1, "Playing Song:", wx.DLG_PNT(self,7,90))
+        wx.StaticText(self, -1, "iTunes Status:", wx.DLG_PNT(self,7,127))
+        self.itunesstatus = wx.StaticText(self, wxID_ITUNES, "", wx.DLG_PNT(self,95,127))
+        wx.StaticText(self, -1, "Last Server Response:", wx.DLG_PNT(self,7,137))
+        self.lastresponse = wx.StaticText(self, wxID_ITUNES, "", wx.DLG_PNT(self,95,137))
+
+        self.lnkNowPlayingTrack = HyperLinkCtrl(self, wxID_PLAYTRK, '', wx.Point(10,163), URL='')
+        self.lnkNowPlayingArtist = HyperLinkCtrl(self, wxID_PLAYART, '', wx.Point(10,177), URL='')
+
+        self.lnkLastPlayedTrack = HyperLinkCtrl(self, wxID_LASTTRK, '', wx.Point(10,105), URL='')
+        self.lnkLastPlayedArtist = HyperLinkCtrl(self, wxID_LASTART, '', wx.Point(10,119), URL='')
+
+        self.lnkProfile = HyperLinkCtrl(self, wxID_PROFILE, 'Profile', wx.Point(10,246),
+                                        URL='http://last.fm/user/%s' % main.prefs['username'])
+
+        self.lnkProfile.SetColours(visited=wx.Colour(0, 0, 255))
+        self.lnkNowPlayingTrack.SetColours(visited=wx.Colour(0, 0, 255))
+        self.lnkLastPlayedTrack.SetColours(visited=wx.Colour(0, 0, 255))
+        self.lnkNowPlayingArtist.SetColours(visited=wx.Colour(0, 0, 255))
+        self.lnkLastPlayedArtist.SetColours(visited=wx.Colour(0, 0, 255))
+
+        #openlogbutton = wx.Button(self, wxID_OPENLOG, "Open Log")
+
+        #self.hbuttonbox_openlog = wx.BoxSizer(wx.HORIZONTAL)
         #self.hbuttonbox_openlog.Add(openlogbutton)
         #self.hbuttonbox_openlog.Add((7, 7))
-        self.hbuttonbox_okbutton = wxBoxSizer(wxHORIZONTAL)
-        self.hbuttonbox_okbutton.Add(okbutton)
-        self.hbuttonbox_okbutton.Add((7, 7))
-        #self.hbuttonbox.Add((-1,-1),-1, wxEXPAND|wxALL)
-        #self.hbuttonbox.Add(okbutton, 0, wxALIGN_RIGHT)
+        #self.hbuttonbox.Add((-1,-1),-1, wxEXPAND|wx.ALL)
+        #self.hbuttonbox.Add(okbutton, 0, wx.ALIGN_RIGHT)
         #self.hbuttonbox.Add((7, 7))
 
         #self.gridsizer = wxGridSizer(2,0,0)
         #self.gridsizer.AddMany([openlogbutton,okbutton])
 
-        self.box = wxBoxSizer(wxVERTICAL)
-        self.box.Add((-1,-1), -1, wxGROW|wxALL)
-        #self.box.Add(self.hbuttonbox_openlog, 0, wxALIGN_RIGHT)
+        #self.box.Add(self.hbuttonbox_openlog, 0, wx.ALIGN_RIGHT)
         #self.box.Add((7, 7))
-        self.box.Add(self.hbuttonbox_okbutton, 0, wxALIGN_RIGHT)
-        self.box.Add((7, 7))
 
-        self.SetSizer(self.box)
-        okbutton.SetDefault()
- 
-        wxButton(self, wxID_OPENLOG, "Open Log", wxDLG_PNT(self,7,165))
-        #wxButton(self, wxID_OK, "OK", wxDLG_PNT(self,140,165))
-        #wxButton(self, wxID_OK, "OK", wxDLG_PNT(self,140,165)).SetDefault()
+        wx.Button(self, wx.ID_OK, "OK", wx.DLG_PNT(self,140,168))
+        wx.Button(self, wxID_OPENLOG, "Open Log", wx.DLG_PNT(self,7,168))
 
         self.SetValues()
 
-        EVT_BUTTON(self, wxID_OPENLOG, self.OpenLog)
-        
-        self.timer = wxTimer(self, wxID_STATSTIMER)
-        EVT_TIMER(self, wxID_STATSTIMER, self.OnTimer)
+        wx.EVT_BUTTON(self, wxID_OPENLOG, self.OpenLog)
+
+        self.timer = wx.Timer(self, wxID_STATSTIMER)
+        wx.EVT_TIMER(self, wxID_STATSTIMER, self.OnTimer)
         self.timer.Start(1000)
-        
+
         self.first = True
 
 
@@ -446,33 +442,59 @@ class StatsDialog(wxDialog):
 
     def CheckVersion(self):
         self.first = False
-        
+
         #try:
             #setdefaulttimeout(12)
             #null, newversion, versiontext = urlopen("").readlines()
             #newversion = newversion[:-1]
             #versiontext = versiontext[:-1]
             #if self._sum_version(newversion) > self._sum_version(_version_):
-            #    wxStaticText(self, -1, "New Version: "+newversion+versiontext, wxDLG_PNT(self,7,155))
+            #    wx.StaticText(self, -1, "New Version: "+newversion+versiontext, wx.DLG_PNT(self,7,155))
             #log.debug(newversion+versiontext)
         #except Exception, err:
             #log.warning("Version checking error: [%s:%s]" % (Exception,err))
-    
+
     def SetValues(self):
         self.songssubmitted.SetLabel(str(s.songssubmitted))
         self.songsqueued.SetLabel(str(s.songsqueued))
         self.submissionattempts.SetLabel(str(s.submissionattempts))
         self.successfullsubmissions.SetLabel(str(s.successfullsubmissions))
-        
+
         if s.lastsubmitted != {}:
-            self.lastsubmitted.SetLabel("\"%s\" by %s" % (s.lastsubmitted['name'],s.lastsubmitted['artist']))
+            self.lnkLastPlayedTrack.SetURL("http://last.fm/music/%s/_/%s" % (quote(s.lastsubmitted['artist'].encode('utf-8').replace('/','%2F')),
+                                                                             quote(s.lastsubmitted['name'].encode('utf-8').replace('/','%2F'))))
+            try:
+                self.lnkLastPlayedTrack.SetLabel(s.lastsubmitted['name'])
+            except:
+                self.lnkLastPlayedTrack.SetLabel('track contains non-displayable characters')
+            self.lnkLastPlayedArtist.SetURL("http://last.fm/music/%s" % (quote(s.lastsubmitted['artist'].encode('utf-8').replace('/','%2F'))))
+            try:
+                self.lnkLastPlayedArtist.SetLabel(s.lastsubmitted['artist'])
+            except:
+                self.lnkLastPlayedArtist.SetLabel('artist contains non-displayable characters')
+
         playingsong = s.playingsong
 
         if playingsong != None:
-            self.playingsong.SetLabel("\"%s\" by %s" % (playingsong['name'],playingsong['artist']))
+            self.lnkNowPlayingTrack.SetURL("http://last.fm/music/%s/_/%s" % (quote(playingsong['artist'].encode('utf-8').replace('/','%2F')),
+                                                                             quote(playingsong['name'].encode('utf-8').replace('/','%2F'))))
+            self.lnkNowPlayingArtist.SetURL("http://last.fm/music/%s" % (quote(playingsong['artist'].encode('utf-8').replace('/','%2F'))))
+            try:
+                self.lnkNowPlayingTrack.SetLabel(playingsong['name'])
+            except:
+                self.lnkNowPlayingTrack.SetLabel('track contains non-displayable characters')
+
+            try:
+                self.lnkNowPlayingArtist.SetLabel(playingsong['artist'])
+            except:
+                self.lnkNowPlayingArtist.SetLabel('artist contains non-displayable characters')
+
         else:
-            self.playingsong.SetLabel("")
-        
+            self.lnkNowPlayingTrack.SetURL('')
+            self.lnkNowPlayingTrack.SetLabel('')
+            self.lnkNowPlayingArtist.SetURL('')
+            self.lnkNowPlayingArtist.SetLabel('')
+
         try:
             if itunes.Events.suspended:
                 itunesstatus = "Busy"
@@ -486,46 +508,42 @@ class StatsDialog(wxDialog):
                 itunesstatus = ""
         except:
             itunesstatus = ""
-        
+
         self.itunesstatus.SetLabel(itunesstatus)
         self.lastresponse.SetLabel(s.lastrawserverresponse)
 
 
-class TaskBarApp(wxFrame):
+class TaskBarApp(wx.Frame):
     def __init__(self, parent, id, title):
-        wxFrame.__init__(self, parent, id, title, size = (1,1), style=wxFRAME_NO_TASKBAR)
+        wx.Frame.__init__(self, parent, id, title, size = (1,1), style=wx.FRAME_NO_TASKBAR)
 
         self.iconstatus = 0
         #self.pathtoself = path.split(argv[0])[0]
         self.pathtoself = path.abspath(path.dirname(argv[0]))
         self.ipodmenuenabled = False
-        
+
         self.statsdlgshown = False
         self.prefsdlgshown = False
-        
+
         self.changesuccessicon = False
         self.lastsubtime = -1
-        
+
         self.submissions_manually_disabled = False
         self.quotes = True
 
-        if wxPlatform == "__WXMSW__":
-            self.tbi = wxTaskBarIcon()
+        if wx.Platform == "__WXMSW__":
+            self.tbi = wx.TaskBarIcon()
             if inlineimages:
                 icon = images("normal.ico")
             else:
-                icon = wxIcon(path.join(self.pathtoself,"data\\normal.ico"), wxBITMAP_TYPE_ICO)
-                #icon = wxEmptyIcon()
-                #icon.CopyFromBitmap(wxBitmapFromImage(wxImageFromStream(cStringIO.StringIO(imagesdict['normal.ico']))))
+                icon = wx.Icon(path.join(self.pathtoself,"data\\normal.ico"), wx.BITMAP_TYPE_ICO)
             self.tbi.SetIcon(icon, "iSproggler")
-            #EVT_TASKBAR_RIGHT_UP(self.tbi, self.OnTaskBarRight)
-            #EVT_TASKBAR_LEFT_DCLICK(self.tbi, self.OnTaskBarLeftDouble)
-            self.tbi.Bind(EVT_TASKBAR_RIGHT_UP, self.OnTaskBarRight)
-            self.tbi.Bind(EVT_TASKBAR_LEFT_DCLICK, self.OnTaskBarLeftDouble)
+            self.tbi.Bind(wx.EVT_TASKBAR_RIGHT_UP, self.OnTaskBarRight)
+            self.tbi.Bind(wx.EVT_TASKBAR_LEFT_DCLICK, self.OnTaskBarLeftDouble)
 
-        self.menu = wxMenu()
+        self.menu = wx.Menu()
         #if main.prefs['ipodsupport']:
-        self.submenu = wxMenu()
+        self.submenu = wx.Menu()
         self.submenu.Append(wxID_IPHONE_AUTO,"Automatic")
         self.submenu.Append(wxID_IPHONE_MANUAL,"Manual")
         self.menu.AppendMenu(-1,"Update iPhone/iPod touch",self.submenu)
@@ -541,58 +559,58 @@ class TaskBarApp(wxFrame):
         self.menu.Append(wxID_STATS, "Statistics"," Show Statistics")
         self.menu.Append(wxID_PREFS, "Preferences..."," Show Preferences...")
         self.menu.Append(wxID_EXIT, "Exit"," Quit iSproggler")
-       
-        #EVT_MENU(self, wxID_DISABLE, self.OnDisableSubmissions)
-        #EVT_MENU(self, wxID_PAUSE, self.OnPauseSubmissions)
-        #EVT_MENU(self, wxID_LASTFMHOME, self.OnLastfmHomepage)
-        #EVT_MENU(self, wxID_LASTFMUSER, self.OnLastfmUserPage)
-        #EVT_MENU(self, wxID_STATS, self.OnStatistics)
-        #EVT_MENU(self, wxID_PREFS, self.OnPreferences)
-        #EVT_MENU(self, wxID_EXIT, self.OnExit)
 
-        if wxPlatform != "__WXMSW__":
+        #wx.EVT_MENU(self, wxID_DISABLE, self.OnDisableSubmissions)
+        #wx.EVT_MENU(self, wxID_PAUSE, self.OnPauseSubmissions)
+        #wx.EVT_MENU(self, wxID_LASTFMHOME, self.OnLastfmHomepage)
+        #wx.EVT_MENU(self, wxID_LASTFMUSER, self.OnLastfmUserPage)
+        #wx.EVT_MENU(self, wxID_STATS, self.OnStatistics)
+        #wx.EVT_MENU(self, wxID_PREFS, self.OnPreferences)
+        #wx.EVT_MENU(self, wxID_EXIT, self.OnExit)
+
+        if wx.Platform != "__WXMSW__":
             self.tbi = self
 
         #if main.prefs['ipodsupport']:
-        self.tbi.Bind(EVT_MENU, self.OnUpdateiPhoneAuto, id=wxID_IPHONE_AUTO)
-        self.tbi.Bind(EVT_MENU, self.OnUpdateiPhoneManual, id=wxID_IPHONE_MANUAL)
-        self.tbi.Bind(EVT_MENU, self.OnUpdateiPod, id=wxID_IPOD)
-        self.tbi.Bind(EVT_MENU, self.OnDisableSubmissions, id=wxID_DISABLE)
-        self.tbi.Bind(EVT_MENU, self.OnPauseSubmissions, id=wxID_PAUSE)
-        self.tbi.Bind(EVT_MENU, self.OnLastfmHomepage, id=wxID_LASTFMHOME)
-        self.tbi.Bind(EVT_MENU, self.OnLastfmUserPage, id=wxID_LASTFMUSER)
-        self.tbi.Bind(EVT_MENU, self.OnStatistics, id=wxID_STATS)
-        self.tbi.Bind(EVT_MENU, self.OnPreferences, id=wxID_PREFS)
-        self.tbi.Bind(EVT_MENU, self.OnExit, id=wxID_EXIT)
+        self.tbi.Bind(wx.EVT_MENU, self.OnUpdateiPhoneAuto, id=wxID_IPHONE_AUTO)
+        self.tbi.Bind(wx.EVT_MENU, self.OnUpdateiPhoneManual, id=wxID_IPHONE_MANUAL)
+        self.tbi.Bind(wx.EVT_MENU, self.OnUpdateiPod, id=wxID_IPOD)
+        self.tbi.Bind(wx.EVT_MENU, self.OnDisableSubmissions, id=wxID_DISABLE)
+        self.tbi.Bind(wx.EVT_MENU, self.OnPauseSubmissions, id=wxID_PAUSE)
+        self.tbi.Bind(wx.EVT_MENU, self.OnLastfmHomepage, id=wxID_LASTFMHOME)
+        self.tbi.Bind(wx.EVT_MENU, self.OnLastfmUserPage, id=wxID_LASTFMUSER)
+        self.tbi.Bind(wx.EVT_MENU, self.OnStatistics, id=wxID_STATS)
+        self.tbi.Bind(wx.EVT_MENU, self.OnPreferences, id=wxID_PREFS)
+        self.tbi.Bind(wx.EVT_MENU, self.OnExit, id=wxID_EXIT)
 
         if not main.ready():
             log.verb("Preferences need to be set")
             self.OnPreferences(-1)
- 
-        if wxPlatform != "__WXMSW__":
-            wxFrame.__init__(self,NULL, -1, "iSproggler")
-            self.Show(true)
-            menubar = wxMenuBar()
+
+        if wx.Platform != "__WXMSW__":
+            wx.Frame.__init__(self,NULL, -1, "iSproggler")
+            self.Show(True)
+            menubar = wx.MenuBar()
             menubar.Append(self.menu, "iSproggler")
             self.SetMenuBar(menubar)
 
-        self.timer = wxTimer(self, wxID_TIMER)
-        #EVT_TIMER(self, wxID_TIMER, self.OnTimer)
-        self.Bind(EVT_TIMER, self.OnTimer, id=wxID_TIMER)
+        self.timer = wx.Timer(self, wxID_TIMER)
+        #wx.EVT_TIMER(self, wxID_TIMER, self.OnTimer)
+        self.Bind(wx.EVT_TIMER, self.OnTimer, id=wxID_TIMER)
         self.timer.Start(1000)
         self.coretimer = 10
         self.SetWindowSize()
- 
+
         if main.prefs['ipodsupport']:
             if not main.ipodmounted:
                 try:
-                    self.menu.Enable(wxID_IPOD,false)
+                    self.menu.Enable(wxID_IPOD,False)
                     self.ipodmenuenabled = False
                 except:
                     log.warning("Exception raised when disabling the Update iPod menu")
         else:
             try:
-                self.menu.Enable(wxID_IPOD,false)
+                self.menu.Enable(wxID_IPOD,False)
                 log.verb("Disabling \"Update iPod\" menu item as iPod is support is not enabled")
                 self.ipodmenuenabled = False
             except:
@@ -601,14 +619,14 @@ class TaskBarApp(wxFrame):
         if s.pausesubmissions:
             self.menu.SetLabel(wxID_PAUSE, "Resume Submissions")
             self.SetBlueIcon("Submissions Paused")
-            self.menu.Enable(wxID_DISABLE,false)
+            self.menu.Enable(wxID_DISABLE,False)
             log.verb("Paused submission state restored")
         elif s.disablesubmissions:
             self.menu.SetLabel(wxID_DISABLE, "Enable Submissions")
             self.SetBlueIcon("Submissions Disabled")
-            self.menu.Enable(wxID_PAUSE,false)
+            self.menu.Enable(wxID_PAUSE,False)
             log.verb("Disabled submission state restored")
- 
+
     def SetWindowSize(self):
         try:
             reg = _winreg.ConnectRegistry(None, _winreg.HKEY_CURRENT_USER)
@@ -647,14 +665,14 @@ class TaskBarApp(wxFrame):
         log.verb(message)
         self.menu.SetLabel(wxID_DISABLE, "Disable Submissions")
         self.SetRedIcon(self.SetIconQuote())
-        self.menu.Enable(wxID_PAUSE,true)
+        self.menu.Enable(wxID_PAUSE,True)
         s.submissionstate("disable",False)
 
     def _disable_submissions(self,message):
         log.verb(message)
         self.menu.SetLabel(wxID_DISABLE, "Enable Submissions")
         self.SetBlueIcon("Submissions Disabled")
-        self.menu.Enable(wxID_PAUSE,false)
+        self.menu.Enable(wxID_PAUSE,False)
         s.submissionstate("disable",True)
 
     def LastFMCheck(self):
@@ -663,7 +681,7 @@ class TaskBarApp(wxFrame):
         if not self._lastfm_running():
             if s.disablesubmissions:
                 self._enable_submissions("Enabling submissions as the Last.fm software is not running")
-                
+
             return
         try:
             reg = _winreg.ConnectRegistry(None, _winreg.HKEY_CURRENT_USER)
@@ -671,7 +689,7 @@ class TaskBarApp(wxFrame):
             user = _winreg.QueryValueEx(key, "CurrentUser")[0]
             key = _winreg.OpenKey(reg, r"Software\Last.fm\Client\Users\%s" % user, _winreg.KEY_READ)
             enable = _winreg.QueryValueEx(key, "LogToProfile")[0]
-           
+
             if enable == 1:
                 if s.disablesubmissions:
                     return
@@ -688,7 +706,7 @@ class TaskBarApp(wxFrame):
 
     #def OnTaskBarLeftDouble(self, event):
     #    self.IconQuote()
-    
+
     def OnTaskBarLeftDouble(self, event):
         if self.quotes:
             self.quotes = False
@@ -708,20 +726,20 @@ class TaskBarApp(wxFrame):
             else:
                 log.warning(s.manualipoderror)
                 MessageBox(0,s.manualipoderror+".\n\nPlease try again.","iSproggler",1)
-        
+
     def OnUpdateiPhoneAuto(self, event):
         log.verb("OnUpdateiPhoneAuto")
         if main.prefs['ipodmultiple']:
-        	main.prefs['ipodmultiple'] = False
-        	f._pickle("iSproggler Prefs.pkl",main.prefs)
-        	log.verb("Multiple plays disabled as it is not compatible with iPhone and iPod touch");
+          main.prefs['ipodmultiple'] = False
+          f._pickle("iSproggler Prefs.pkl",main.prefs)
+          log.verb("Multiple plays disabled as it is not compatible with iPhone and iPod touch");
         s.checkipodsongs()
-        
+
     def OnUpdateiPod(self, event):
         if s.ipodmanual():
             main.updateonunmount = False
             try:
-                self.menu.Enable(wxID_IPOD,false)
+                self.menu.Enable(wxID_IPOD,False)
                 log.verb("Disabling \"Update iPod\" menu item as iPod songs have been found")
                 self.ipodmenuenabled = False
             except:
@@ -740,14 +758,14 @@ class TaskBarApp(wxFrame):
             #print "Enable Submissions"
             self.menu.SetLabel(wxID_DISABLE, "Disable Submissions")
             self.SetRedIcon(self.SetIconQuote())
-            self.menu.Enable(wxID_PAUSE,true)
+            self.menu.Enable(wxID_PAUSE,True)
             s.submissionstate("disable",False)
             self.submissions_manually_disabled = False
         else:
             #print "Disable Submissions"
             self.menu.SetLabel(wxID_DISABLE, "Enable Submissions")
             self.SetBlueIcon("Submissions Disabled")
-            self.menu.Enable(wxID_PAUSE,false)
+            self.menu.Enable(wxID_PAUSE,False)
             s.submissionstate("disable",True)
             self.submissions_manually_disabled = True
 
@@ -756,13 +774,13 @@ class TaskBarApp(wxFrame):
             #print "Resume Submissions"
             self.menu.SetLabel(wxID_PAUSE, "Pause Submissions")
             self.SetRedIcon(self.SetIconQuote())
-            self.menu.Enable(wxID_DISABLE,true)
+            self.menu.Enable(wxID_DISABLE,True)
             s.submissionstate("pause",False)
         else:
             #print "Pause Submissions"
             self.menu.SetLabel(wxID_PAUSE, "Resume Submissions")
             self.SetBlueIcon("Submissions Paused")
-            self.menu.Enable(wxID_DISABLE,false)
+            self.menu.Enable(wxID_DISABLE,False)
             s.submissionstate("pause",True)
 
     def OnLastfmHomepage(self, event):
@@ -785,7 +803,7 @@ class TaskBarApp(wxFrame):
         if not self.prefsdlgshown:
             prefsdlg = PrefsDialog(self)
             self.prefsdlgshown = True
-            if prefsdlg.ShowModal() == wxID_OK:
+            if prefsdlg.ShowModal() == wx.ID_OK:
                 newprefs = {}
                 newprefs['username'] = prefsdlg.username.GetValue()
                 if prefsdlg.password.GetValue() != "*" * int(main.prefs['passlength']):
@@ -793,7 +811,7 @@ class TaskBarApp(wxFrame):
                     newprefs['passlength'] = len(password)
                     if type(password) == type(u""):
                         password = password.encode("utf-8")
-                    newprefs['password'] = md5.md5(password).hexdigest()
+                    newprefs['password'] = hashlib.md5(password).hexdigest()
                 if prefsdlg.ipodsupport.GetValue():
                     newprefs['ipodsupport'] = prefsdlg.ipodsupport.GetValue()
                     newprefs['ipodmultiple'] = prefsdlg.ipodmultiple.GetValue()
@@ -839,7 +857,7 @@ class TaskBarApp(wxFrame):
                         log.verb("Registry writing successful")
                     except:
                         pass
-            
+
             try:
                 self.prefsdlgshown = False
                 prefsdlg.Destroy()
@@ -864,14 +882,14 @@ class TaskBarApp(wxFrame):
             main.ipodcheck()
             if main.ipodmounted and not self.ipodmenuenabled:
                 try:
-                    self.menu.Enable(wxID_IPOD,true)
+                    self.menu.Enable(wxID_IPOD,True)
                     log.verb("Enabling \"Update iPod\" menu item as an iPod volume has mounted")
                     self.ipodmenuenabled = True
                 except:
                     log.warning("Exception raised when enabling the Update iPod menu")
             if not main.ipodmounted and self.ipodmenuenabled:
                 try:
-                    self.menu.Enable(wxID_IPOD,false)
+                    self.menu.Enable(wxID_IPOD,False)
                     log.verb("Disabling \"Update iPod\" menu item as iPod volume has unmounted")
                     self.ipodmenuenabled = False
                 except:
@@ -918,7 +936,10 @@ class TaskBarApp(wxFrame):
 
     def SetIconQuote(self):
         if self.quotes and s.lastsubmitted != {}:
-            return "\"%s\" by %s" % (s.lastsubmitted['name'],s.lastsubmitted['artist'])
+            try:
+              return ("\"%s\" by %s" % (s.lastsubmitted['name'],s.lastsubmitted['artist'])).encode('utf-8')
+            except:
+              return choice(quotes.quotes)
         else:
             return choice(quotes.quotes)
 
@@ -927,20 +948,20 @@ class TaskBarApp(wxFrame):
             if inlineimages:
                 icon = images("normal.ico")
             else:
-                icon = wxIcon(path.join(self.pathtoself,"data\\normal.ico"), wxBITMAP_TYPE_ICO)
+                icon = wxIcon(path.join(self.pathtoself,"data\\normal.ico"), wx.BITMAP_TYPE_ICO)
             #icon = wxEmptyIcon()
-            #icon.CopyFromBitmap(wxBitmapFromImage(wxImageFromStream(cStringIO.StringIO(imagesdict['normal.ico']))))
-            if wxPlatform == "__WXMSW__": self.tbi.SetIcon(icon, self.SetIconQuote())
+            #icon.CopyFromBitmap(wx.BitmapFromImage(wx.ImageFromStream(cStringIO.StringIO(imagesdict['normal.ico']))))
+            if wx.Platform == "__WXMSW__": self.tbi.SetIcon(icon, self.SetIconQuote())
 
     def SetRedIcon(self,slogan):
         if self.iconstatus != 0:
             if inlineimages:
                 icon = images("normal.ico")
             else:
-                icon = wxIcon(path.join(self.pathtoself,"data\\normal.ico"), wxBITMAP_TYPE_ICO)
+                icon = wxIcon(path.join(self.pathtoself,"data\\normal.ico"), wx.BITMAP_TYPE_ICO)
             #icon = wxEmptyIcon()
-            #icon.CopyFromBitmap(wxBitmapFromImage(wxImageFromStream(cStringIO.StringIO(imagesdict['normal.ico']))))
-            if wxPlatform == "__WXMSW__": self.tbi.SetIcon(icon, slogan)
+            #icon.CopyFromBitmap(wx.BitmapFromImage(wx.ImageFromStream(cStringIO.StringIO(imagesdict['normal.ico']))))
+            if wx.Platform == "__WXMSW__": self.tbi.SetIcon(icon, slogan)
             self.iconstatus = 0
 
     def SetGreenIcon(self,message):
@@ -948,10 +969,10 @@ class TaskBarApp(wxFrame):
             if inlineimages:
                 icon = images("green.ico")
             else:
-                icon = wxIcon(path.join(self.pathtoself,"data\\green.ico"), wxBITMAP_TYPE_ICO)
+                icon = wxIcon(path.join(self.pathtoself,"data\\green.ico"), wx.BITMAP_TYPE_ICO)
             #icon = wxEmptyIcon()
-            #icon.CopyFromBitmap(wxBitmapFromImage(wxImageFromStream(cStringIO.StringIO(imagesdict['normal.ico']))))
-            if wxPlatform == "__WXMSW__": self.tbi.SetIcon(icon, message)
+            #icon.CopyFromBitmap(wx.BitmapFromImage(wx.ImageFromStream(cStringIO.StringIO(imagesdict['normal.ico']))))
+            if wx.Platform == "__WXMSW__": self.tbi.SetIcon(icon, message)
             self.iconstatus = 2
 
     def SetBlueIcon(self,error):
@@ -959,19 +980,19 @@ class TaskBarApp(wxFrame):
             if inlineimages:
                 icon = images("error.ico")
             else:
-                icon = wxIcon(path.join(self.pathtoself,"data\\error.ico"), wxBITMAP_TYPE_ICO)
+                icon = wxIcon(path.join(self.pathtoself,"data\\error.ico"), wx.BITMAP_TYPE_ICO)
             #icon = wxEmptyIcon()
-            #icon.CopyFromBitmap(wxBitmapFromImage(wxImageFromStream(cStringIO.StringIO(imagesdict['error.ico']))))
-            if wxPlatform == "__WXMSW__": self.tbi.SetIcon(icon, error)
+            #icon.CopyFromBitmap(wx.BitmapFromImage(wx.ImageFromStream(cStringIO.StringIO(imagesdict['error.ico']))))
+            if wx.Platform == "__WXMSW__": self.tbi.SetIcon(icon, error)
             self.iconstatus = 1
 
 
-class MyApp(wxApp):
+class MyApp(wx.App):
     def OnInit(self):
         frame = TaskBarApp(None, -1, "iSproggler")
-        frame.Center(wxBOTH)
-        frame.Show(false)
-        return true
+        frame.Center(wx.BOTH)
+        frame.Show(False)
+        return True
 
 
 if __name__ == '__main__':
@@ -983,4 +1004,3 @@ if __name__ == '__main__':
     s.lastserverresponse.append("Debug")
     app = MyApp(0)
     app.MainLoop()
-
